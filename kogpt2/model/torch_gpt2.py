@@ -624,9 +624,9 @@ class GPT2LMHeadModel(GPT2PreTrainedModel):
       loss1 = loss1.view(shift_labels.size(0), shift_labels.size(1))
       label_size = torch.sum(shift_labels != -1, dim=1).type(loss1.type())
       loss = torch.sum(loss1) / torch.sum(label_size)
-      ppl = torch.exp(torch.mean(
-          torch.sum(loss1, dim=1).float() / label_size.float()))
-      return loss, ppl
+      loss2 = torch.sum(loss1, dim=1).float() / label_size.float()
+      ppl = torch.exp(torch.mean(loss2))
+      return loss, ppl, loss2
     # (loss, ppl), lm_logits, presents, (all hidden_states), (attentions)
     return (lm_logits,) + transformer_outputs[1:]
 
