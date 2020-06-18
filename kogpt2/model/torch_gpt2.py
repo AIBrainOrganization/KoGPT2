@@ -608,7 +608,11 @@ class GPT2LMHeadModel(GPT2PreTrainedModel):
     lm_logits = self.lm_head(hidden_states)
 
     # need shift?
-    if labels is not None:
+    if labels is None:
+      lm_logits = self.lm_head(hidden_states[:, -1:, :])
+      return (lm_logits,) + transformer_outputs[1:]
+    else:
+      lm_logits = self.lm_head(hidden_states)
       # Shift so that tokens < n predict n
       # shift_logits = lm_logits[..., :-1, :].contiguous()
       # shift_labels = labels[..., 1:].contiguous()
@@ -628,7 +632,6 @@ class GPT2LMHeadModel(GPT2PreTrainedModel):
       ppl = torch.exp(torch.mean(loss2))
       return loss, ppl, loss2
     # (loss, ppl), lm_logits, presents, (all hidden_states), (attentions)
-    return (lm_logits,) + transformer_outputs[1:]
 
 
 @add_start_docstrings(
