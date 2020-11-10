@@ -15,7 +15,6 @@
 # limitations under the License.
 """PyTorch OpenAI GPT-2 model."""
 
-
 import logging
 import math
 import os
@@ -29,15 +28,19 @@ from transformers.configuration_gpt2 import GPT2Config
 from transformers.file_utils import add_start_docstrings
 from transformers.modeling_utils import Conv1D, PreTrainedModel, SequenceSummary, prune_conv1d_layer
 
-
 logger = logging.getLogger(__name__)
 
 GPT2_PRETRAINED_MODEL_ARCHIVE_MAP = {
-    "gpt2": "https://s3.amazonaws.com/models.huggingface.co/bert/gpt2-pytorch_model.bin",
-    "gpt2-medium": "https://s3.amazonaws.com/models.huggingface.co/bert/gpt2-medium-pytorch_model.bin",
-    "gpt2-large": "https://s3.amazonaws.com/models.huggingface.co/bert/gpt2-large-pytorch_model.bin",
-    "gpt2-xl": "https://s3.amazonaws.com/models.huggingface.co/bert/gpt2-xl-pytorch_model.bin",
-    "distilgpt2": "https://s3.amazonaws.com/models.huggingface.co/bert/distilgpt2-pytorch_model.bin",
+    "gpt2":
+    "https://s3.amazonaws.com/models.huggingface.co/bert/gpt2-pytorch_model.bin",
+    "gpt2-medium":
+    "https://s3.amazonaws.com/models.huggingface.co/bert/gpt2-medium-pytorch_model.bin",
+    "gpt2-large":
+    "https://s3.amazonaws.com/models.huggingface.co/bert/gpt2-large-pytorch_model.bin",
+    "gpt2-xl":
+    "https://s3.amazonaws.com/models.huggingface.co/bert/gpt2-xl-pytorch_model.bin",
+    "distilgpt2":
+    "https://s3.amazonaws.com/models.huggingface.co/bert/distilgpt2-pytorch_model.bin",
 }
 
 
@@ -50,8 +53,7 @@ def load_tf_weights_in_gpt2(model, config, gpt2_checkpoint_path):
   except ImportError:
     logger.error(
         "Loading a TensorFlow model in PyTorch, requires TensorFlow to be installed. Please see "
-        "https://www.tensorflow.org/install/ for installation instructions."
-    )
+        "https://www.tensorflow.org/install/ for installation instructions.")
     raise
   tf_path = os.path.abspath(gpt2_checkpoint_path)
   logger.info("Converting TensorFlow checkpoint from {}".format(tf_path))
@@ -104,8 +106,9 @@ class Attention(nn.Module):
     n_state = nx  # in Attention: n_state=768 (nx=n_embd)
     # [switch nx => n_state from Block to Attention to keep identical to TF implem]
     assert n_state % config.n_head == 0
-    self.register_buffer("bias", torch.tril(
-        torch.ones(n_ctx, n_ctx)).view(1, 1, n_ctx, n_ctx))
+    self.register_buffer(
+        "bias",
+        torch.tril(torch.ones(n_ctx, n_ctx)).view(1, 1, n_ctx, n_ctx))
     self.n_head = config.n_head
     self.split_size = n_state
     self.scale = scale
@@ -146,7 +149,7 @@ class Attention(nn.Module):
     if self.scale:
       w = w / math.sqrt(v.size(-1))
     nd, ns = w.size(-2), w.size(-1)
-    b = self.bias[:, :, ns - nd: ns, :ns]
+    b = self.bias[:, :, ns - nd:ns, :ns]
     w = w * b - 1e4 * (1 - b)
 
     if attention_mask is not None:
@@ -167,7 +170,7 @@ class Attention(nn.Module):
 
   def merge_heads(self, x):
     x = x.permute(0, 2, 1, 3).contiguous()
-    new_x_shape = x.size()[:-2] + (x.size(-2) * x.size(-1),)
+    new_x_shape = x.size()[:-2] + (x.size(-2) * x.size(-1), )
     return x.view(*new_x_shape)  # in Tensorflow implem: fct merge_states
 
   def split_heads(self, x, k=False):
@@ -228,9 +231,10 @@ class Block(nn.Module):
     self.mlp = MLP(4 * nx, config)
 
   def forward(self, x, layer_past=None, attention_mask=None, head_mask=None):
-    output_attn = self.attn(
-        self.ln_1(x), layer_past=layer_past, attention_mask=attention_mask, head_mask=head_mask
-    )
+    output_attn = self.attn(self.ln_1(x),
+                            layer_past=layer_past,
+                            attention_mask=attention_mask,
+                            head_mask=head_mask)
     a = output_attn[0]  # output_attn: a, present, (attentions)
 
     x = x + a
@@ -356,7 +360,6 @@ class GPT2Model(GPT2PreTrainedModel):
       last_hidden_states = outputs[0]  # The last hidden-state is the first element of the output tuple
 
   """
-
   def __init__(self, config):
     super().__init__(config)
     self.output_hidden_states = config.output_hidden_states
@@ -366,8 +369,9 @@ class GPT2Model(GPT2PreTrainedModel):
     self.wte = nn.Embedding(config.vocab_size, config.n_embd)
     self.wpe = nn.Embedding(config.n_positions, config.n_embd)
     self.drop = nn.Dropout(config.embd_pdrop)
-    self.h = nn.ModuleList([Block(config.n_ctx, config, scale=True)
-                            for _ in range(config.n_layer)])
+    self.h = nn.ModuleList([
+        Block(config.n_ctx, config, scale=True) for _ in range(config.n_layer)
+    ])
     self.ln_f = nn.LayerNorm(config.n_embd, eps=config.layer_norm_epsilon)
 
     self.init_weights()
@@ -397,7 +401,8 @@ class GPT2Model(GPT2PreTrainedModel):
   ):
     if input_ids is not None and inputs_embeds is not None:
       raise ValueError(
-          "You cannot specify both input_ids and inputs_embeds at the same time")
+          "You cannot specify both input_ids and inputs_embeds at the same time"
+      )
     elif input_ids is not None:
       input_shape = input_ids.size()
       input_ids = input_ids.view(-1, input_shape[-1])
@@ -420,8 +425,10 @@ class GPT2Model(GPT2PreTrainedModel):
       past_length = past[0][0].size(-2)
     if position_ids is None:
       device = input_ids.device if input_ids is not None else inputs_embeds.device
-      position_ids = torch.arange(
-          past_length, input_shape[-1] + past_length, dtype=torch.long, device=device)
+      position_ids = torch.arange(past_length,
+                                  input_shape[-1] + past_length,
+                                  dtype=torch.long,
+                                  device=device)
       position_ids = position_ids.unsqueeze(0).view(-1, input_shape[-1])
 
     # Attention mask.
@@ -449,16 +456,14 @@ class GPT2Model(GPT2PreTrainedModel):
     # head_mask has shape n_layer x batch x n_heads x N x N
     if head_mask is not None:
       if head_mask.dim() == 1:
-        head_mask = head_mask.unsqueeze(
-            0).unsqueeze(0).unsqueeze(-1).unsqueeze(-1)
+        head_mask = head_mask.unsqueeze(0).unsqueeze(0).unsqueeze(
+            -1).unsqueeze(-1)
         head_mask = head_mask.expand(self.config.n_layer, -1, -1, -1, -1)
       elif head_mask.dim() == 2:
-        head_mask = (
-            head_mask.unsqueeze(1).unsqueeze(-1).unsqueeze(-1)
-        )  # We can specify head_mask for each layer
-      head_mask = head_mask.to(
-          dtype=next(self.parameters()).dtype
-      )  # switch to fload if need + fp16 compatibility
+        head_mask = (head_mask.unsqueeze(1).unsqueeze(-1).unsqueeze(-1)
+                     )  # We can specify head_mask for each layer
+      head_mask = head_mask.to(dtype=next(self.parameters(
+      )).dtype)  # switch to fload if need + fp16 compatibility
     else:
       head_mask = [None] * self.config.n_layer
 
@@ -472,7 +477,7 @@ class GPT2Model(GPT2PreTrainedModel):
     hidden_states = inputs_embeds + position_embeds + token_type_embeds
     hidden_states = self.drop(hidden_states)
 
-    output_shape = input_shape + (hidden_states.size(-1),)
+    output_shape = input_shape + (hidden_states.size(-1), )
 
     presents = ()
     all_attentions = []
@@ -482,14 +487,14 @@ class GPT2Model(GPT2PreTrainedModel):
         all_hidden_states = all_hidden_states + \
             (hidden_states.view(*output_shape),)
 
-      outputs = block(
-          hidden_states, layer_past=layer_past, attention_mask=attention_mask, head_mask=head_mask[
-              i]
-      )
+      outputs = block(hidden_states,
+                      layer_past=layer_past,
+                      attention_mask=attention_mask,
+                      head_mask=head_mask[i])
 
       hidden_states, present = outputs[:2]
       if self.output_past:
-        presents = presents + (present,)
+        presents = presents + (present, )
 
       if self.output_attentions:
         all_attentions.append(outputs[2])
@@ -499,20 +504,20 @@ class GPT2Model(GPT2PreTrainedModel):
     hidden_states = hidden_states.view(*output_shape)
     # Add last hidden state
     if self.output_hidden_states:  # False
-      all_hidden_states = all_hidden_states + (hidden_states,)
+      all_hidden_states = all_hidden_states + (hidden_states, )
 
-    outputs = (hidden_states,)
+    outputs = (hidden_states, )
     if self.output_past:  # True
-      outputs = outputs + (presents,)
+      outputs = outputs + (presents, )
     if self.output_hidden_states:  # False
-      outputs = outputs + (all_hidden_states,)
+      outputs = outputs + (all_hidden_states, )
     if self.output_attentions:  # False
       # let the number of heads free (-1) so we can extract attention even after head pruning
-      attention_output_shape = input_shape[:-
-                                           1] + (-1,) + all_attentions[0].shape[-2:]
-      all_attentions = tuple(t.view(*attention_output_shape)
-                             for t in all_attentions)
-      outputs = outputs + (all_attentions,)
+      attention_output_shape = input_shape[:-1] + (
+          -1, ) + all_attentions[0].shape[-2:]
+      all_attentions = tuple(
+          t.view(*attention_output_shape) for t in all_attentions)
+      outputs = outputs + (all_attentions, )
     # last hidden state, (presents), (all hidden_states), (attentions)
     return outputs
 
@@ -563,7 +568,6 @@ class GPT2LMHeadModel(GPT2PreTrainedModel):
       loss, logits = outputs[:2]
 
   """
-
   def __init__(self, config):
     super().__init__(config)
     self.transformer = GPT2Model(config)
@@ -605,24 +609,30 @@ class GPT2LMHeadModel(GPT2PreTrainedModel):
     )
     hidden_states = transformer_outputs[0]
 
-    lm_logits = self.lm_head(hidden_states)
-
     # need shift?
     if labels is None:
       lm_logits = self.lm_head(hidden_states[:, -1:, :])
-      return (lm_logits,) + transformer_outputs[1:]
+      return (lm_logits, ) + transformer_outputs[1:]
     else:
       lm_logits = self.lm_head(hidden_states)
       # Shift so that tokens < n predict n
       # shift_logits = lm_logits[..., :-1, :].contiguous()
       # shift_labels = labels[..., 1:].contiguous()
+
+      n_vocab = 2600
+      res = torch.log(torch.sum(torch.exp(lm_logits[:, :, n_vocab:]), -1))
+      res[res >= 10] = 10.
+      lm_logits[:, :, 5] += res
+      lm_logits = lm_logits[:, :, :n_vocab]
+      labels[labels >= n_vocab] = 5
+
       shift_logits = lm_logits
       shift_labels = labels
       # Flatten the tokens
       # reduction='none' to calculate ppl
       loss_fct = CrossEntropyLoss(ignore_index=-1, reduction='none')
-      loss1 = loss_fct(
-          shift_logits.view(-1, shift_logits.size(-1)), shift_labels.view(-1))
+      loss1 = loss_fct(shift_logits.view(-1, shift_logits.size(-1)),
+                       shift_labels.view(-1))
 
       # ppl
       loss1 = loss1.view(shift_labels.size(0), shift_labels.size(1))
@@ -705,7 +715,6 @@ class GPT2DoubleHeadsModel(GPT2PreTrainedModel):
       lm_prediction_scores, mc_prediction_scores = outputs[:2]
 
   """
-
   def __init__(self, config):
     super().__init__(config)
     config.num_labels = 1
@@ -744,22 +753,23 @@ class GPT2DoubleHeadsModel(GPT2PreTrainedModel):
     hidden_states = transformer_outputs[0]
 
     lm_logits = self.lm_head(hidden_states)
-    mc_logits = self.multiple_choice_head(
-        hidden_states, mc_token_ids).squeeze(-1)
+    mc_logits = self.multiple_choice_head(hidden_states,
+                                          mc_token_ids).squeeze(-1)
 
     outputs = (lm_logits, mc_logits) + transformer_outputs[1:]
     if mc_labels is not None:
       loss_fct = CrossEntropyLoss()
       loss = loss_fct(mc_logits.view(-1, mc_logits.size(-1)),
                       mc_labels.view(-1))
-      outputs = (loss,) + outputs
+      outputs = (loss, ) + outputs
     if lm_labels is not None:
       shift_logits = lm_logits[..., :-1, :].contiguous()
       shift_labels = lm_labels[..., 1:].contiguous()
       loss_fct = CrossEntropyLoss()
-      loss = loss_fct(
-          shift_logits.view(-1, shift_logits.size(-1)), shift_labels.view(-1))
-      outputs = (loss,) + outputs
+      loss = loss_fct(shift_logits.view(-1, shift_logits.size(-1)),
+                      shift_labels.view(-1))
+      outputs = (loss, ) + outputs
 
     # (lm loss), (mc loss), lm logits, mc logits, presents, (all hidden_states), (attentions)
     return outputs
+
